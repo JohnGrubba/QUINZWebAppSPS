@@ -1,101 +1,272 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Loader2 } from "lucide-react";
+import { proxyRequest } from "@/lib/proxy";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [user, setUser] = useState("");
+  const [password, setPassword] = useState("");
+  const [ipAddress, setIpAddress] = useState("");
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [speed, setSpeed] = useState(0);
+  const [isOn, setIsOn] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+  function toast({ title, description, variant = "success" }: { title: string, description?: string, variant?: "success" | "destructive" }) {
+    console.log(`[Toast] ${title}: ${description}`);
+  }
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem("quinzsps-user");
+    const savedIpAddress = localStorage.getItem("quinzsps-ip");
+
+    if (savedUser) setUser(savedUser);
+    if (savedIpAddress) setIpAddress(savedIpAddress);
+  }, []);
+
+  const fetchToken = async () => {
+    setLoading(true);
+    try {
+      const loginBody = [
+        {
+          id: 0,
+          jsonrpc: "2.0",
+          method: "Api.Login",
+          params: { user: user, password: password }
+        }
+      ];
+
+      const data = await proxyRequest(`https://${ipAddress}/api/jsonrpc`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loginBody),
+      });
+
+      const newToken = data[0]?.result?.token;
+
+      if (newToken) {
+        setToken(newToken);
+        // Save credentials for next time
+        localStorage.setItem("quinzsps-user", user);
+        localStorage.setItem("quinzsps-ip", ipAddress);
+
+        toast({
+          title: "Login successful",
+          description: "You can now control the device",
+        });
+      } else {
+        toast({
+          title: "Login failed",
+          description: "Invalid credentials or server error",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast({
+        title: "Connection error",
+        description: "Could not connect to the server. Check the IP address and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const writeSpeed = async (newSpeed: number) => {
+    if (!token) return;
+
+    try {
+      const writeSpeedBody = [
+        {
+          "jsonrpc": "2.0",
+          "method": "PlcProgram.Write",
+          "id": 1,
+          "params": {
+            "var": "\"Motor\".Sollgeschwindigkeit",
+            "value": newSpeed
+          }
+        }
+      ]
+
+      const response = await proxyRequest(`https://${ipAddress}/api/jsonrpc`, {
+        method: "POST",
+        headers: {
+          "X-Auth-Token": token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(writeSpeedBody),
+      });
+
+      if (response) {
+        toast({
+          title: "Speed updated",
+          description: `Speed set to ${newSpeed}`,
+        });
+      }
+    } catch (error) {
+      console.error("Speed change error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update speed",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const writeOnOff = async (on: boolean) => {
+    if (!token) return;
+
+    try {
+      const writeOnOffBody = [
+        {
+          "jsonrpc": "2.0",
+          "method": "PlcProgram.Write",
+          "id": 1,
+          "params": {
+            "var": "\"Motor\".ein",
+            "value": on
+          }
+        }
+      ]
+
+      const response = await proxyRequest(`https://${ipAddress}/api/jsonrpc`, {
+        method: "POST",
+        headers: {
+          "X-Auth-Token": token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(writeOnOffBody),
+      });
+
+      if (response) {
+        setIsOn(on);
+        toast({
+          title: on ? "Device turned ON" : "Device turned OFF",
+        });
+      }
+    } catch (error) {
+      console.error("On/Off error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to change power state",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const logout = () => {
+    setToken(null);
+  };
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md">
+        {!token ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>SPS Control Panel</CardTitle>
+              <CardDescription>Enter your credentials to access the control system</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ipAddress">IP Address</Label>
+                <Input
+                  id="ipAddress"
+                  placeholder="e.g. 192.168.10.61"
+                  value={ipAddress}
+                  onChange={(e) => setIpAddress(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={user}
+                  onChange={(e) => setUser(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full"
+                onClick={fetchToken}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : "Login"}
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>SPS Controls</CardTitle>
+              <CardDescription>Connected to {ipAddress}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="power">Power</Label>
+                  <Switch
+                    id="power"
+                    checked={isOn}
+                    onCheckedChange={(checked) => writeOnOff(checked)}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {isOn ? "Device is running" : "Device is off"}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="speed">Speed: {speed}</Label>
+                <Slider
+                  id="speed"
+                  min={0}
+                  max={3000}
+                  step={100}
+                  value={[speed]}
+                  onValueChange={(value) => setSpeed(value[0])}
+                  onValueCommit={(value) => writeSpeed(value[0])}
+                  disabled={!isOn}
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={logout}>Logout</Button>
+              <Button
+                variant="destructive"
+                onClick={() => writeOnOff(false)}
+                disabled={!isOn}
+              >
+                Emergency Stop
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+      </div>
+    </main>
   );
 }
